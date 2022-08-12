@@ -1,0 +1,11 @@
+/node_modules
+
+/images/*
+/uploads/*
+
+*.png
+*.jpg
+*.jpeg
+
+*.mp3
+*.mp4
