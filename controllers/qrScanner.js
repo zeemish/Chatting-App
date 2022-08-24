@@ -1,9 +1,13 @@
 const Jimp = require("jimp");
 const QrCode = require("qrcode-reader");
-
+const sequelize = require("../util/db");
+const User_QrCode = require("../models/user_qrCode");
+const User = require("../models/user");
 const fs = require("fs");
+const jwt = require("jsonwebtoken");
 
 const QRCode = require("../models/qrCode");
+const { QueryTypes } = require("sequelize");
 
 exports.readQRCode = async (req, res, next) => {
   var buffer = fs.readFileSync(__dirname + "/Capture.PNG");
@@ -45,6 +49,85 @@ exports.scanQrCode = async (req, res, next) => {
         msg: "Qr Code scanned successfully...",
         qrId: qr_Code.id,
       });
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+exports.scanCode = async (req, res, next) => {
+  const { qrId, userId } = req.params;
+  const {
+    name,
+    identity,
+    interest,
+    age,
+    favDrink,
+    favSong,
+    hobbies,
+    petPeeve,
+    relationPreference,
+  } = req.body;
+  const qr = await QRCode.findOne({ where: { id: qrId } });
+  if (!qr) {
+    res.status(402).json({ success: false, msg: "No QR Found" });
+  }
+  try {
+    if (qr && !userId) {
+      //user null should be create
+
+      // console.log(qrId);
+      var user = await qr.createUser({
+        name: null,
+        identity: null,
+        interest: null,
+        age: null,
+        relationPreference: null,
+        favDrink: null,
+        favSong: null,
+        hobbies: null,
+        petPeeve: null,
+      });
+      res
+        .status(200)
+        .json({ success: true, userId: user.id, msg: "User has been created" });
+      const userInBar = await User_QrCode.create({
+        userID: user.id,
+        qrId: qr,
+      });
+      console.log(userInBar);
+      // res.json({ msg: "send" });
+    }
+
+    if (qr && userId) {
+      //user null should be update
+      const findId = await User.findByPk(userId);
+      // console.log("id", findId.id);
+      if (!findId) {
+        return res.status(404).json({ msg: "User not found", success: false });
+      }
+      const updatedUser = await User.update(
+        {
+          name,
+          identity,
+          interest,
+          age,
+          relationPreference,
+          favDrink,
+          favSong,
+          hobbies,
+          petPeeve,
+        },
+        {
+          where: { id: userId, qrCodeId: qr.id },
+        }
+      );
+      const token = jwt.sign({ id: userId }, "pd_JWTSecret_123", {
+        expiresIn: "6h",
+      });
+      res
+        .status(200)
+        .json({ success: true, msg: "User has been updated", token });
     }
   } catch (error) {
     console.log(error);

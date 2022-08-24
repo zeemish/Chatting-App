@@ -12,6 +12,7 @@ require("dotenv").config();
 const qrScannerRoutes = require("./routers/qrScanner");
 const userDetailsRoutes = require("./routers/userDetails");
 const locationRoutes = require("./routers/location");
+const paymentRoutes = require("./routers/payment");
 
 //  ----------------------- MODELS ---------------------
 const User = require("./models/user");
@@ -84,6 +85,7 @@ app.use((error, req, res, next) => {
 app.use("/api/qrScanner", qrScannerRoutes);
 app.use("/api/users", userDetailsRoutes);
 app.use("/api/location", locationRoutes);
+app.use("/api/payment", paymentRoutes);
 
 const PORT = 8000;
 
@@ -251,6 +253,8 @@ app.post("/api/chat/uploadFiles", (req, res, next) => {
 User.hasOne(Picture);
 Picture.belongsTo(User);
 QRCode.hasMany(User);
+// QRCode.belongsToMany(User, { through: "USER_QRCODE", timestamps: false });
+// User.belongsToMany(QRCode, { through: "USER_QRCODE", timestamps: false });
 User.belongsTo(QRCode);
 User.belongsToMany(Location, { through: "USER_LOCATION", timestamps: false });
 Location.belongsToMany(User, { through: "USER_LOCATION", timestamps: false });

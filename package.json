@@ -33,6 +33,7 @@
     "qrcode-reader": "^1.0.4",
     "sequelize": "^6.20.1",
     "socket.io": "^4.5.1",
+    "stripe": "^10.3.0",
     "uuid": "^8.3.2"
   }
 }

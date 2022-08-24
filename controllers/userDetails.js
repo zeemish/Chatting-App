@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
+const stripe = require("stripe")(process.env.STRIPE_API);
 const schedule = require("node-schedule");
 
 const Location = require("../models/location");
@@ -12,6 +14,7 @@ exports.newUser = async (req, res, next) => {
   const qrId = req.params.qrId;
   console.log("params---", req.params);
   const {
+    email,
     name,
     identity,
     interest,
@@ -24,6 +27,7 @@ exports.newUser = async (req, res, next) => {
 
   try {
     if (
+      !email &&
       !name &&
       !identity &&
       !interest &&
@@ -38,6 +42,26 @@ exports.newUser = async (req, res, next) => {
       // throw error.message;
       return res.status(403).json({ error: error.message });
     }
+
+    const validateEmail = (email) => {
+      return email.match(
+        /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+      );
+    };
+    if (!validateEmail(email)) {
+      const error = new Error("Email is not valid");
+      error.statusCode = 403;
+      // throw error.message;
+      return res.status(403).json({ error: error.message });
+    }
+
+    if (!email) {
+      const error = new Error("Email cannot be empty");
+      error.statusCode = 403;
+      // throw error.message;
+      return res.status(403).json({ error: error.message });
+    }
+
     if (!name) {
       const error = new Error("Name cannot be empty");
       error.statusCode = 403;
@@ -56,8 +80,21 @@ exports.newUser = async (req, res, next) => {
         msg: "No such QR or QRcode may be not scanned correctly",
       });
     }
+
+    const customer = await stripe.customers.create(
+      {
+        email,
+      },
+      { apiKey: process.env.STRIPE_API }
+    );
+    const existsUser = await User.findOne({ where: { email: email } });
+
+    if (existsUser) {
+      return res.json({ message: "A user with that email already exists!" });
+    }
     const newUser = await qrCode.createUser(
       {
+        email,
         name,
         identity,
         interest,
@@ -66,23 +103,24 @@ exports.newUser = async (req, res, next) => {
         favSong,
         hobbies,
         petPeeve,
+        stripeCustomerId: customer.id,
       },
       { include: Picture }
     );
     const token = jwt.sign({ id: newUser.id }, "pd_JWTSecret_123", {
       expiresIn: "6h",
     });
-    const job = schedule.scheduleJob("* * */5 * * *", async function () {
-      const currUser = newUser.id;
-      const deleteUser = await User.destroy({ where: { id: currUser } });
-      console.log(`${deleteUser} user Deleted: with id: -> ${currUser}`);
-      console.log("The answer to life, the universe, and everything!");
-      schedule.gracefulShutdown();
+
+    res.status(200).json({
+      msg: "User Data Stored",
+      newUser,
+      token,
+      stripeCustomerId: customer.id,
     });
-    res.status(200).json({ msg: "User Data Stored", newUser, token });
   } catch (error) {
     error.statusCode = 403;
     // throw error.message;
+    console.log(error);
     return res.status(500).json({ error: "Something went wrong on our side" });
   }
 };
@@ -90,11 +128,11 @@ exports.newUser = async (req, res, next) => {
 exports.getUser = async (req, res, next) => {
   const userId = req.params.userId;
   try {
-    const fetchSingleUser = await User.findByPk(userId, { include: Picture });
-    if (!fetchSingleUser) {
+    const user = await User.findByPk(userId, { include: Picture });
+    if (!user) {
       return res.status(404).json({ msg: "No User Found" });
     }
-    res.json({ msg: "user Fetched", fetchSingleUser });
+    res.json({ msg: "user Fetched", user, customerId: user.stripeCustomerId });
   } catch (error) {
     error.statusCode = 403;
     // throw error.message;
@@ -202,7 +240,7 @@ exports.uploadSelfie = async (req, res) => {
       imageUrl: result.Location,
     });
 
-    const job = schedule.scheduleJob("* * */5 * * *", async function () {
+    const job = schedule.scheduleJob("0 5 * * *", async function () {
       const currPic = image.id;
       const deletedPic = await Picture.destroy({
         where: { id: currPic, userId: user.id },

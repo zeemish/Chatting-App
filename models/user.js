@@ -14,6 +14,9 @@ const User = sequelize.define(
       primaryKey: true,
       unique: true,
     },
+    email: {
+      type: DataTypes.STRING,
+    },
     name: {
       type: DataTypes.STRING,
     },
@@ -24,6 +27,9 @@ const User = sequelize.define(
       type: DataTypes.STRING,
     },
     age: {
+      type: DataTypes.STRING,
+    },
+    relationPreference: {
       type: DataTypes.STRING,
     },
     favDrink: {
@@ -37,6 +43,10 @@ const User = sequelize.define(
     },
     petPeeve: {
       type: DataTypes.STRING,
+    },
+    stripeCustomerId: {
+      type: DataTypes.STRING,
+      required: true,
     },
   },
   { timestamps: false }

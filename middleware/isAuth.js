@@ -24,7 +24,7 @@ module.exports = (req, res, next) => {
     return res.json({ error: error.message, status: 401 });
   }
   req.userId = decodedToken.id;
-  // console.log("token ------>", decodedToken);
+  console.log("token ------>", decodedToken);
   // console.log("userId ---------------->", req.userId);
   next();
 };
