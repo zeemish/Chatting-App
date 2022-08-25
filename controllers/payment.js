@@ -74,7 +74,7 @@ exports.fetchMySubscription = async (req, res, next) => {
       apiKey: process.env.STRIPE_API,
     }
   );
-  console.log(mySubscriptions);
+  console.log(mySubscriptions.data[0].id);
   if (!mySubscriptions.data.length) {
     return res.status(400).json({ msg: `You Haven't subscribed to any plan` });
   }
@@ -83,8 +83,26 @@ exports.fetchMySubscription = async (req, res, next) => {
 };
 
 exports.cancelSubscription = async (req, res, next) => {
-  const deleted = await stripe.subscriptions.del(
-    "sub_1LaL0wI6kIxt8pjLuJaZkUf1"
+  const user = await User.findOne({ where: { id: req.userId } });
+  if (!user) {
+    return res.status(403).json({ msg: "No user found" });
+  }
+  const mySubscriptions = await stripe.subscriptions.list(
+    {
+      customer: user.stripeCustomerId,
+      status: "all",
+      expand: ["data.default_payment_method"],
+      // limit: 1,
+    },
+    {
+      apiKey: process.env.STRIPE_API,
+    }
   );
+  console.log(mySubscriptions.data[0].id);
+  const deleted = await stripe.subscriptions.del(mySubscriptions.data[0].id);
+  console.log(deleted);
+  if (!deleted) {
+    return res.json({ Error: "No such subscription" });
+  }
   res.json({ msg: "Subscription canceled", deleted });
 };

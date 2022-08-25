@@ -107,9 +107,7 @@ exports.newUser = async (req, res, next) => {
       },
       { include: Picture }
     );
-    const token = jwt.sign({ id: newUser.id }, "pd_JWTSecret_123", {
-      expiresIn: "6h",
-    });
+    const token = jwt.sign({ id: newUser.id }, "pd_JWTSecret_123");
 
     res.status(200).json({
       msg: "User Data Stored",
