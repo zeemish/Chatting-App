@@ -2,13 +2,19 @@ const PricePlan = require("../models/pricePlan");
 const User = require("../models/user");
 
 require("dotenv").config();
-const stripe = require("stripe")(process.env.STRIPE_API);
+const stripe = require("stripe")(process.env.STRIPE_API, {
+  apiVersion: "2020-08-27",
+});
 
 exports.getPrices = async (req, res) => {
-  const prices = await stripe.prices.list({
-    apiKey: process.env.STRIPE_API,
-  });
-  return res.status(200).json({ msg: "fetched prices from stripe", prices });
+  try {
+    const prices = await stripe.prices.list({
+      apiKey: process.env.STRIPE_API,
+    });
+    return res.status(200).json({ msg: "fetched prices from stripe", prices });
+  } catch (error) {
+    console.log(error);
+  }
 };
 
 exports.createSession = async (req, res, next) => {
@@ -60,52 +66,61 @@ exports.createSubscription = async (req, res) => {
 };
 
 exports.fetchMySubscription = async (req, res, next) => {
-  const user = await User.findOne({ where: { id: req.userId } });
-  if (!user) {
-    return res.status(403).json({ msg: "No user found" });
-  }
-  const mySubscriptions = await stripe.subscriptions.list(
-    {
-      customer: user.stripeCustomerId,
-      status: "all",
-      expand: ["data.default_payment_method"],
-      // limit: 1,
-    },
-    {
-      apiKey: process.env.STRIPE_API,
+  try {
+    const user = await User.findOne({ where: { id: req.userId } });
+    if (!user) {
+      return res.status(403).json({ msg: "No user found" });
     }
-  );
-  console.log(mySubscriptions.data[0].id);
-  if (!mySubscriptions.data.length) {
-    return res.status(400).json({ msg: `You Haven't subscribed to any plan` });
+    const mySubscriptions = await stripe.subscriptions.list(
+      {
+        customer: user.stripeCustomerId,
+        status: "all",
+        expand: ["data.default_payment_method"],
+        // limit: 1,
+      },
+      {
+        apiKey: process.env.STRIPE_API,
+      }
+    );
+    console.log(mySubscriptions.data[0].id);
+    if (!mySubscriptions.data.length) {
+      return res
+        .status(400)
+        .json({ msg: `You Haven't subscribed to any plan` });
+    }
+    res.status(200).json({ msg: "Fetched subscriptions", mySubscriptions });
+  } catch (error) {
+    console.log(error);
   }
-
-  res.status(200).json({ msg: "Fetched subscriptions", mySubscriptions });
 };
 
 exports.cancelSubscription = async (req, res, next) => {
-  const user = await User.findOne({ where: { id: req.userId } });
-  if (!user) {
-    return res.status(403).json({ msg: "No user found" });
-  }
-  const mySubscriptions = await stripe.subscriptions.list(
-    {
-      customer: user.stripeCustomerId,
-      status: "all",
-      expand: ["data.default_payment_method"],
-      // limit: 1,
-    },
-    {
-      apiKey: process.env.STRIPE_API,
+  try {
+    const user = await User.findOne({ where: { id: req.userId } });
+    if (!user) {
+      return res.status(403).json({ msg: "No user found" });
     }
-  );
-  console.log(mySubscriptions.data[0].id);
-  const deleted = await stripe.subscriptions.del(mySubscriptions.data[0].id);
-  console.log(deleted);
-  if (!deleted) {
-    return res.json({ Error: "No such subscription" });
+    const mySubscriptions = await stripe.subscriptions.list(
+      {
+        customer: user.stripeCustomerId,
+        status: "all",
+        expand: ["data.default_payment_method"],
+        // limit: 1,
+      },
+      {
+        apiKey: process.env.STRIPE_API,
+      }
+    );
+    console.log(mySubscriptions.data[0].id);
+    const deleted = await stripe.subscriptions.del(mySubscriptions.data[0].id);
+    console.log(deleted);
+    if (!deleted) {
+      return res.json({ Error: "No such subscription" });
+    }
+    res.json({ msg: "Subscription canceled", deleted });
+  } catch (error) {
+    console.log(error);
   }
-  res.json({ msg: "Subscription canceled", deleted });
 };
 
 exports.oneTimePayment = async (req, res, next) => {
@@ -129,7 +144,7 @@ exports.subscription = async (req, res) => {
   try {
     let priceId = req.params.priceId;
     const userr = await User.findByPk(req.userId);
-    const priceplan = await PricePlan.findByPk(1);
+    const priceplan = await PricePlan.findByPk(priceId);
     const paymentMethod = await stripe.paymentMethods.create({
       type: "card",
       card: {

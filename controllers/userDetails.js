@@ -92,21 +92,18 @@ exports.newUser = async (req, res, next) => {
     if (existsUser) {
       return res.json({ message: "A user with that email already exists!" });
     }
-    const newUser = await qrCode.createUser(
-      {
-        email,
-        name,
-        identity,
-        interest,
-        age,
-        favDrink,
-        favSong,
-        hobbies,
-        petPeeve,
-        stripeCustomerId: customer.id,
-      },
-      { include: Picture }
-    );
+    const newUser = await qrCode.createUser({
+      email,
+      name,
+      identity,
+      interest,
+      age,
+      favDrink,
+      favSong,
+      hobbies,
+      petPeeve,
+      stripeCustomerId: customer.id,
+    });
     const token = jwt.sign({ id: newUser.id }, "pd_JWTSecret_123");
 
     res.status(200).json({
@@ -353,19 +350,22 @@ exports.getLocationUser = async (req, res, next) => {
       include: [
         {
           model: User,
-          attributes: ["name", "age"],
+          all: true,
+          nested: true,
         },
+
         // { where: { qrCodeId: qrId } },
       ],
     });
     if (users.dataValues.users.length === 0) {
       return res.status(404).json({ msg: "No Users in this location" });
     }
-    console.log(users.dataValues.users);
+    console.log(users.dataValues.users[0]);
     res.json({ msg: `users for id: ${locationId} fetched`, users });
   } catch (error) {
     error.statusCode = 403;
     // throw error.message;
+    console.log(error);
     return res.status(500).json({ error: "Something went wrong on our side" });
   }
 };
